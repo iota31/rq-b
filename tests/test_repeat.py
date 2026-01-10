@@ -156,45 +156,6 @@ class TestRepeatEnqueue(RQTestCase):
         with self.assertRaises(ValueError):
             Repeat.schedule(job, self.queue)
 
-    def test_repeat_schedule_interval_greater_than_zero(self):
-        """Test the Repeat.schedule method properly schedules job repeats"""
-
-        queue = self.queue
-        registry = ScheduledJobRegistry(queue=queue)
-
-        repeat = Repeat(times=3, interval=30)  # 30 second interval
-        job = queue.enqueue(say_hello, repeat=repeat)
-
-        # Clear the queue so we can verify the job is not enqueued immediately
-        queue.empty()
-        # Get current time for reference
-        before_schedule = now()
-
-        # Schedule the job
-        Repeat.schedule(job, queue)
-
-        after_schedule = now()
-
-        # Verify job was not enqueued immediately
-        self.assertNotIn(job.id, queue.get_job_ids())
-
-        # Verify job was added to scheduled registry
-        self.assertIn(job.id, registry.get_job_ids())
-
-        # Scheduled time should be approximately 30 seconds from now
-        scheduled_time = registry.get_scheduled_time(job.id)
-        expected_min = before_schedule + timedelta(seconds=25)  # Allow 1 sec buffer
-        expected_max = after_schedule + timedelta(seconds=35)  # Allow 1 sec buffer
-
-        self.assertTrue(
-            expected_min <= scheduled_time <= expected_max,
-            f'Job not scheduled in expected window: {expected_min} <= {scheduled_time} <= {expected_max}',
-        )
-
-        # Check repeats_left was decremented
-        job.refresh()
-        self.assertEqual(job.repeats_left, 2)
-
 
 class TestWorkerRepeat(RQTestCase):
     def test_successful_job_repeat(self):

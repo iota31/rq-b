@@ -500,7 +500,7 @@ class Queue:
             at_front (bool, optional): Whether to push the job to front of the queue. Defaults to False.
         """
         connection = pipeline if pipeline is not None else self.connection
-        push = connection.lpush if at_front else connection.rpush
+        push = connection.rpush if at_front else connection.lpush
         result = push(self.key, job_id)
         if pipeline is None:
             self.log.debug('Pushed job %s into %s, %s job(s) are in queue.', blue(job_id), green(self.name), result)

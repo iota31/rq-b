@@ -99,10 +99,6 @@ class Repeat:
         if job.repeat_intervals:
             interval = cls.get_interval(repeat_count, job.repeat_intervals)
 
-        # Decrement repeats_left
-        job.repeats_left = job.repeats_left - 1
-        job.save(pipeline=pipe)
-
         if interval == 0:
             # Enqueue the job immediately
             queue._enqueue_job(job, pipeline=pipe)
@@ -110,6 +106,10 @@ class Repeat:
             # Schedule the job to run after the interval
             scheduled_time = datetime.now() + timedelta(seconds=interval)
             queue.schedule_job(job, scheduled_time, pipeline=pipe)
+
+        # Decrement repeats_left
+        job.repeats_left = job.repeats_left - 1
+        job.save(pipeline=pipe)
 
         # Execute the pipeline if we created it
         if pipeline is None:

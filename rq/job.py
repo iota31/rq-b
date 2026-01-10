@@ -500,7 +500,7 @@ class Job:
     @property
     def success_callback_timeout(self) -> int:
         if self._success_callback_timeout is None:
-            return CALLBACK_TIMEOUT
+            return 0
 
         return self._success_callback_timeout
 
@@ -1562,7 +1562,7 @@ class Job:
             return 0
         number_of_intervals = len(self.retry_intervals)
         assert self.retries_left
-        index = max(number_of_intervals - self.retries_left, 0)
+        index = max(number_of_intervals - self.retries_left + 1, 0)
         return self.retry_intervals[index]
 
     @property

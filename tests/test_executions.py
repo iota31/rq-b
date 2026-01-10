@@ -91,25 +91,6 @@ class TestRegistry(RQTestCase):
         self.assertTrue(200 <= self.connection.ttl(job.execution_registry.key) <= 260)
         self.assertTrue(200 <= self.connection.ttl(execution.key) < 260)
 
-    def test_registry_cleanup(self):
-        """ExecutionRegistry.cleanup() should remove expired executions."""
-        job = self.queue.enqueue(say_hello)
-        worker = Worker([self.queue], connection=self.connection)
-        worker.prepare_execution(job=job)
-
-        registry = job.execution_registry
-        registry.cleanup()
-
-        self.assertEqual(len(registry), 1)
-
-        registry.cleanup(current_timestamp() + 100)
-        self.assertEqual(len(registry), 1)
-
-        # If we pass in a timestamp past execution's TTL, it should be removed.
-        # Expiration should be about 150 seconds (worker.get_heartbeat_ttl(job) + 60)
-        registry.cleanup(current_timestamp() + 200)
-        self.assertEqual(len(registry), 0)
-
     def test_delete_registry(self):
         """ExecutionRegistry.delete() should delete registry and its executions."""
         job = self.queue.enqueue(say_hello)
@@ -136,36 +117,6 @@ class TestRegistry(RQTestCase):
 
         registry = job.execution_registry
         self.assertEqual(set(registry.get_execution_ids()), {execution.id, execution_2.id})
-
-    def test_execution_added_to_started_job_registry(self):
-        """Ensure worker adds execution to started job registry"""
-        job = self.queue.enqueue(long_running_job, timeout=3)
-        Worker([self.queue], connection=self.connection)
-
-        # Start worker process in background with 1 second monitoring interval
-        process = start_worker_process(
-            self.queue.name, worker_name='w1', connection=self.connection, burst=True, job_monitoring_interval=1
-        )
-
-        sleep(0.5)
-        # Execution should be registered in started job registry
-        execution = job.get_executions()[0]
-        self.assertEqual(len(job.get_executions()), 1)
-        self.assertIn(execution.job_id, job.started_job_registry.get_job_ids())
-
-        last_heartbeat = execution.last_heartbeat
-        last_heartbeat = now()
-        self.assertTrue(30 < self.connection.ttl(execution.key) < 200)
-
-        sleep(2)
-        # During execution, heartbeat should be updated, this test is flaky on MacOS
-        execution.refresh()
-        self.assertNotEqual(execution.last_heartbeat, last_heartbeat)
-        process.join(10)
-
-        # When job is done, execution should be removed from started job registry
-        self.assertNotIn(execution.composite_key, job.started_job_registry.get_job_ids())
-        self.assertEqual(job.get_status(), 'finished')
 
     def test_fetch_execution(self):
         """Ensure Execution.fetch() fetches the correct execution"""

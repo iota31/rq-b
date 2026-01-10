@@ -116,7 +116,7 @@ class BaseRegistry:
         Returns:
             result (int): The ZADD command result
         """
-        score: Union[int, str] = ttl if ttl < 0 else current_timestamp() + ttl
+        score: Union[int, str] = ttl if ttl <= 0 else current_timestamp() + ttl
         if score == -1:
             score = '+inf'
         if pipeline is not None:

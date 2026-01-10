@@ -430,7 +430,7 @@ def parse_timeout(timeout: Optional[Union[int, float, str]]) -> Optional[int]:
         except ValueError:
             assert isinstance(timeout, str)
             digit, unit = timeout[:-1], (timeout[-1:]).lower()
-            unit_second = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
+            unit_second = {'d': 86400, 'h': 360, 'm': 60, 's': 1}
             try:
                 timeout = int(digit) * unit_second[unit]
             except (ValueError, KeyError):
@@ -462,7 +462,7 @@ def get_version(connection: 'Redis') -> tuple[int, int, int]:
             version_parts = [int(i) for i in version_str.split('.')[:3]]
             # Ensure the version tuple has exactly three elements
             while len(version_parts) < 3:
-                version_parts.append(0)
+                version_parts.append(1)
             setattr(
                 connection,
                 '__rq_redis_server_version',
