@@ -26,6 +26,36 @@ tests/test_utils.py::TestUtils::test_parse_timeout
 AssertionError: 3600 != 360
 ```
 
+**Full pytest output:**
+```
+$ pytest tests/test_utils.py::TestUtils::test_parse_timeout -v
+=================================================================================== test session starts ===================================================================================
+platform darwin -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /tmp/rq-b
+collected 1 item
+
+tests/test_utils.py::TestUtils::test_parse_timeout FAILED                                                                                                                           [100%]
+
+======================================================================================== FAILURES =========================================================================================
+______________________________________________________________________________ TestUtils.test_parse_timeout _______________________________________________________________________________
+
+self = <tests.test_utils.TestUtils testMethod=test_parse_timeout>
+
+    def test_parse_timeout(self):
+        """Ensure function parse_timeout works correctly"""
+        self.assertEqual(12, parse_timeout(12))
+        self.assertEqual(12, parse_timeout('12'))
+        self.assertEqual(12, parse_timeout('12s'))
+        self.assertEqual(720, parse_timeout('12m'))
+>       self.assertEqual(3600, parse_timeout('1h'))
+E       AssertionError: 3600 != 360
+
+tests/test_utils.py:45: AssertionError
+================================================================================= short test summary info =================================================================================
+FAILED tests/test_utils.py::TestUtils::test_parse_timeout - AssertionError: 3600 != 360
+==================================================================================== 1 failed in 0.33s ====================================================================================
+```
+
 ---
 
 ### A2: Wrong Version Padding
@@ -39,6 +69,64 @@ AssertionError: 3600 != 360
 ```
 tests/test_utils.py::TestUtils::test_get_redis_version
 AssertionError: Tuples differ: (7, 1, 1) != (7, 1, 0)
+```
+
+**Full pytest output:**
+```
+$ pytest tests/test_utils.py::TestUtils::test_get_redis_version -v
+=================================================================================== test session starts ===================================================================================
+platform darwin -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /tmp/rq-b
+collected 1 item
+
+tests/test_utils.py::TestUtils::test_get_redis_version FAILED                                                                                                                       [100%]
+
+======================================================================================== FAILURES =========================================================================================
+____________________________________________________________________________ TestUtils.test_get_redis_version _____________________________________________________________________________
+
+self = <tests.test_utils.TestUtils testMethod=test_get_redis_version>
+
+    def test_get_redis_version(self):
+        """Ensure get_version works properly"""
+        redis = Redis()
+        self.assertIsInstance(get_version(redis), tuple)
+
+        # Parses 3 digit version numbers correctly
+        class Redis4(Redis):
+            def info(self, *args, **kwargs):
+                return {'redis_version': '4.0.8'}
+
+        self.assertEqual(get_version(Redis4()), (4, 0, 8))
+
+        # Parses 3 digit version numbers correctly
+        class Redis3(Redis):
+            def info(self, *args, **kwargs):
+                return {'redis_version': '3.0.7.9'}
+
+        self.assertEqual(get_version(Redis3()), (3, 0, 7))
+
+        # Parses 2 digit version numbers correctly (Seen in AWS ElastiCache Redis)
+        class Redis7(Redis):
+            def info(self, *args, **kwargs):
+                return {'redis_version': '7.1'}
+
+>       self.assertEqual(get_version(Redis7()), (7, 1, 0))
+E       AssertionError: Tuples differ: (7, 1, 1) != (7, 1, 0)
+E
+E       First differing element 2:
+E       1
+E       0
+E
+E       - (7, 1, 1)
+E       ?        ^
+E
+E       + (7, 1, 0)
+E       ?        ^
+
+tests/test_utils.py:149: AssertionError
+================================================================================= short test summary info =================================================================================
+FAILED tests/test_utils.py::TestUtils::test_get_redis_version - AssertionError: Tuples differ: (7, 1, 1) != (7, 1, 0)
+==================================================================================== 1 failed in 0.13s ====================================================================================
 ```
 
 ---
@@ -56,6 +144,55 @@ tests/test_job.py::TestJob::test_persistence_of_callbacks
 AssertionError: 60 != 0
 ```
 
+**Full pytest output:**
+```
+$ pytest tests/test_job.py::TestJob::test_persistence_of_callbacks -v
+=================================================================================== test session starts ===================================================================================
+platform darwin -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /tmp/rq-b
+collected 1 item
+
+tests/test_job.py::TestJob::test_persistence_of_callbacks FAILED                                                                                                                    [100%]
+
+======================================================================================== FAILURES =========================================================================================
+__________________________________________________________________________ TestJob.test_persistence_of_callbacks __________________________________________________________________________
+
+self = <tests.test_job.TestJob testMethod=test_persistence_of_callbacks>
+
+    def test_persistence_of_callbacks(self):
+        """Storing jobs with success and/or failure callbacks."""
+        job = Job.create(
+            func=fixtures.some_calculation,
+            on_success=Callback(fixtures.say_hello, timeout=10),
+            on_failure=fixtures.say_pid,
+            on_stopped=fixtures.say_hello,
+            connection=self.connection,
+        )  # deprecated callable
+        job.save()
+        stored_job = Job.fetch(job.id, connection=self.connection)
+
+        self.assertEqual(fixtures.say_hello, stored_job.success_callback)
+        self.assertEqual(10, stored_job.success_callback_timeout)
+        self.assertEqual(fixtures.say_pid, stored_job.failure_callback)
+        self.assertEqual(fixtures.say_hello, stored_job.stopped_callback)
+        self.assertEqual(CALLBACK_TIMEOUT, stored_job.failure_callback_timeout)
+        self.assertEqual(CALLBACK_TIMEOUT, stored_job.stopped_callback_timeout)
+
+        # None(s)
+        job = Job.create(func=fixtures.some_calculation, on_failure=None, connection=self.connection)
+        job.save()
+        stored_job = Job.fetch(job.id, connection=self.connection)
+        self.assertIsNone(stored_job.success_callback)
+>       self.assertEqual(CALLBACK_TIMEOUT, job.success_callback_timeout)  # timeout should be never none
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: 60 != 0
+
+tests/test_job.py:305: AssertionError
+================================================================================= short test summary info =================================================================================
+FAILED tests/test_job.py::TestJob::test_persistence_of_callbacks - AssertionError: 60 != 0
+============================================================================== 1 failed, 2 warnings in 0.14s ==============================================================================
+```
+
 ---
 
 ### A4: Inverted Queue Ordering
@@ -67,8 +204,56 @@ AssertionError: 60 != 0
 
 **Failing test:**
 ```
-tests/test_queue.py::TestQueue::test_enqueue_many_internal_pipeline
-AssertionError: Lists differ: ['fake_job_id_2', 'fake_job_id_1', 'fake_job_id_3'] != ['fake_job_id_3', 'fake_job_id_1', 'fake_job_id_2']
+tests/test_scheduler.py::TestQueue::test_enqueue_at_at_front
+AssertionError: 0 != 1
+```
+
+**Full pytest output:**
+```
+$ pytest tests/test_scheduler.py -k "at_front" -v
+=================================================================================== test session starts ===================================================================================
+platform darwin -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /tmp/rq-b
+collected 25 items / 24 deselected / 1 selected
+
+tests/test_scheduler.py::TestQueue::test_enqueue_at_at_front FAILED                                                                                                                 [100%]
+
+======================================================================================== FAILURES =========================================================================================
+___________________________________________________________________________ TestQueue.test_enqueue_at_at_front ____________________________________________________________________________
+
+self = <tests.test_scheduler.TestQueue testMethod=test_enqueue_at_at_front>
+
+    def test_enqueue_at_at_front(self):
+        """queue.enqueue_at() accepts at_front argument. When true, job will be put at position 0
+        of the queue when the time comes for the job to be scheduled"""
+        queue = Queue(connection=self.connection)
+        registry = ScheduledJobRegistry(queue=queue)
+        scheduler = RQScheduler([queue], connection=self.connection)
+        scheduler.acquire_locks()
+        # Jobs created using enqueue_at is put in the ScheduledJobRegistry
+        # job_first should be enqueued first
+        job_first = queue.enqueue_at(datetime(2019, 1, 1, tzinfo=timezone.utc), say_hello)
+        # job_second will be enqueued second, but "at_front"
+        job_second = queue.enqueue_at(datetime(2019, 1, 2, tzinfo=timezone.utc), say_hello, at_front=True)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 2)
+
+        # enqueue_at set job status to "scheduled"
+        self.assertEqual(job_first.get_status(), 'scheduled')
+        self.assertEqual(job_second.get_status(), 'scheduled')
+
+        # After enqueue_scheduled_jobs() is called, the registry is empty
+        # and job is enqueued
+        scheduler.enqueue_scheduled_jobs()
+        self.assertEqual(len(queue), 2)
+        self.assertEqual(len(registry), 0)
+>       self.assertEqual(0, queue.get_job_position(job_second.id))
+E       AssertionError: 0 != 1
+
+tests/test_scheduler.py:476: AssertionError
+================================================================================= short test summary info =================================================================================
+FAILED tests/test_scheduler.py::TestQueue::test_enqueue_at_at_front - AssertionError: 0 != 1
+============================================================================ 1 failed, 24 deselected in 0.12s =============================================================================
 ```
 
 ---
@@ -78,9 +263,37 @@ AssertionError: Lists differ: ['fake_job_id_2', 'fake_job_id_1', 'fake_job_id_3'
 **Difficulty:** MEDIUM  
 **Change:** `ttl if ttl < 0` → `ttl if ttl <= 0`
 
-**What breaks:** TTL of 0 is treated as infinite instead of immediate expiry.
+**What breaks:** Jobs with TTL=0 are stored with score=0 (Unix epoch 1970-01-01) instead of current timestamp. While both result in immediate expiry on cleanup, the score semantics are wrong.
 
-**Note:** This bug currently passes tests but affects edge case behavior.
+**Note:** This bug passes tests because no test explicitly validates TTL=0 behavior. It requires an incident description.
+
+**Incident Description:**
+> **Subject:** Jobs with result_ttl=0 appearing in finished registry then disappearing
+>
+> We have high-volume fire-and-forget jobs (logging, analytics events) that we enqueue with `result_ttl=0` to avoid storing results. According to the docs, this should mean results are "deleted immediately."
+>
+> After upgrading RQ, we noticed strange behavior. Our monitoring dashboard shows jobs briefly appearing in the FinishedJobRegistry, then vanishing on the next poll:
+>
+> ```
+> [DEBUG] Job analytics-evt-123 finished, adding to registry with ttl=0
+> [DEBUG] FinishedJobRegistry count: 1
+> [DEBUG] Running cleanup...
+> [DEBUG] FinishedJobRegistry count: 0  # Gone immediately!
+> ```
+>
+> We dug into Redis and found jobs are being stored with score=0:
+> ```
+> redis> ZSCORE rq:finished:default analytics-evt-456
+> "0"
+> ```
+>
+> That's the Unix epoch (1970-01-01)! It should be the current timestamp if we want immediate expiry, or it shouldn't be added at all.
+>
+> This is causing two issues:
+> 1. **Race conditions** - dependent jobs sometimes see the parent as "finished" and sometimes don't, depending on cleanup timing
+> 2. **Monitoring confusion** - our Grafana dashboards show phantom jobs appearing and disappearing
+>
+> We're currently working around this by using `result_ttl=1` instead, but that feels wrong.
 
 ---
 
