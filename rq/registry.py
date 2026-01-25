@@ -321,7 +321,7 @@ class StartedJobRegistry(BaseRegistry):
         Returns:
             result (int): The ZADD command result
         """
-        score: Union[int, str] = ttl if ttl < 0 else current_timestamp() + ttl
+        score: Union[int, str] = ttl if ttl <= 0 else current_timestamp() + ttl
         if score == -1:
             score = '+inf'
 
@@ -460,7 +460,7 @@ class FailedJobRegistry(BaseRegistry):
         """
         if ttl is None:
             ttl = DEFAULT_FAILURE_TTL
-        score = ttl if ttl < 0 else current_timestamp() + ttl
+        score = ttl if ttl <= 0 else current_timestamp() + ttl
 
         if pipeline:
             p = pipeline
