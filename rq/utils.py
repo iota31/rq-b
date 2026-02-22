@@ -462,7 +462,7 @@ def get_version(connection: 'Redis') -> tuple[int, int, int]:
             version_parts = [int(i) for i in version_str.split('.')[:3]]
             # Ensure the version tuple has exactly three elements
             while len(version_parts) < 3:
-                version_parts.append(1)
+                version_parts.append(0)
             setattr(
                 connection,
                 '__rq_redis_server_version',
