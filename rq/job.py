@@ -500,7 +500,7 @@ class Job:
     @property
     def success_callback_timeout(self) -> int:
         if self._success_callback_timeout is None:
-            return 0
+            return CALLBACK_TIMEOUT
 
         return self._success_callback_timeout
 
