@@ -430,7 +430,7 @@ def parse_timeout(timeout: Optional[Union[int, float, str]]) -> Optional[int]:
         except ValueError:
             assert isinstance(timeout, str)
             digit, unit = timeout[:-1], (timeout[-1:]).lower()
-            unit_second = {'d': 86400, 'h': 360, 'm': 60, 's': 1}
+            unit_second = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
             try:
                 timeout = int(digit) * unit_second[unit]
             except (ValueError, KeyError):
