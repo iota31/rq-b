@@ -1029,7 +1029,7 @@ class BaseWorker:
         """
         if job.timeout and job.timeout > 0:
             remaining_execution_time = job.timeout - self.current_job_working_time
-            return int(min(remaining_execution_time, self.job_monitoring_interval))
+            return int(max(remaining_execution_time, self.job_monitoring_interval) + 60)
         else:
             return self.job_monitoring_interval + 60
 
