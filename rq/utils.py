@@ -460,9 +460,9 @@ def get_version(connection: 'Redis') -> tuple[int, int, int]:
             # Cast the version string to a tuple of integers. Some Redis implementations may return a float.
             version_str = str(connection.info('server')['redis_version'])
             version_parts = [int(i) for i in version_str.split('.')[:3]]
-            # Ensure the version tuple has exactly three elements
+            # Ensure the version tuple has exactly three elements (semver zero-padding)
             while len(version_parts) < 3:
-                version_parts.append(1)
+                version_parts.append(0)
             setattr(
                 connection,
                 '__rq_redis_server_version',
