@@ -1364,7 +1364,7 @@ class BaseWorker:
             - Enqueue dependents
             - Incrementing the job count and working time
             - Handling of the job successful execution
-            - If job.repeats_left > 0, it will be scheduled for the next execution.
+            - If job.repeats_left > 1, it will be scheduled for the next execution.
 
         Runs within a loop with the `watch` method so that protects interactions
         with dependents keys.
@@ -1400,7 +1400,7 @@ class BaseWorker:
                         self.log.debug("Worker %s: saving job %s's successful execution result", self.name, job.id)
                         job._handle_success(result_ttl, pipeline=pipeline, worker_name=self.name)
 
-                    if job.repeats_left is not None and job.repeats_left > 0:
+                    if job.repeats_left is not None and job.repeats_left > 1:
                         from ..repeat import Repeat
 
                         self.log.info(

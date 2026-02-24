@@ -158,8 +158,8 @@ class TestRepeatEnqueue(RQTestCase):
 
 
 class TestWorkerRepeat(RQTestCase):
-    def test_successful_job_repeat(self):
-        """Test that successful jobs are repeated according to Repeat settings"""
+    def test_successful_job_repeat_times_1_runs_once_total(self):
+        """Repeat(times=1) should execute only once and not be re-enqueued."""
         queue = Queue(connection=self.connection)
 
         job = queue.enqueue(say_hello, repeat=Repeat(times=1))
@@ -167,19 +167,32 @@ class TestWorkerRepeat(RQTestCase):
         worker = Worker([queue], connection=self.connection)
         worker.work(burst=True, max_jobs=1)
 
-        # The original job should have been processed and repeated
-        self.assertIn(job.id, queue.get_job_ids())
-
-        worker = Worker([queue], connection=self.connection)
-        worker.work(burst=True, max_jobs=1)
-
-        # No repeats left
         self.assertNotIn(job.id, queue.get_job_ids())
 
-        # Failed jobs don't trigger repeats
+    def test_successful_job_repeat_times_3_runs_three_total(self):
+        """Repeat(times=3) should execute exactly 3 times total."""
+        queue = Queue(connection=self.connection)
+
+        job = queue.enqueue(say_hello, repeat=Repeat(times=3))
+
+        worker = Worker([queue], connection=self.connection)
+
+        worker.work(burst=True, max_jobs=1)
+        self.assertIn(job.id, queue.get_job_ids())
+
+        worker.work(burst=True, max_jobs=1)
+        self.assertIn(job.id, queue.get_job_ids())
+
+        worker.work(burst=True, max_jobs=1)
+        self.assertNotIn(job.id, queue.get_job_ids())
+
+    def test_failed_jobs_do_not_repeat(self):
+        """Failed jobs don't trigger repeats."""
+        queue = Queue(connection=self.connection)
         job = queue.enqueue(div_by_zero, repeat=Repeat(times=1))
 
-        self.assertEqual(job.repeats_left, 1)
+        worker = Worker([queue], connection=self.connection)
         worker.work(burst=True)
-        # Job shouldn't be repeated
+
+        self.assertEqual(job.repeats_left, 1)
         self.assertNotIn(job.id, queue.get_job_ids())
