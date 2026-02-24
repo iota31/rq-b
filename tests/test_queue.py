@@ -224,6 +224,20 @@ class TestQueue(RQTestCase):
         # ...and assert the queue count when down
         self.assertEqual(q.count, 0)
 
+    def test_push_job_id_at_front_dequeue_order(self):
+        """Pushing with at_front=True should place the job at the front of the queue."""
+        q = Queue(connection=self.connection)
+
+        first_job_id = 'job-first'
+        front_job_id = 'job-front'
+
+        q.push_job_id(first_job_id)
+        q.push_job_id(front_job_id, at_front=True)
+
+        self.assertEqual(q.get_job_ids(), [front_job_id, first_job_id])
+        self.assertEqual(q.pop_job_id(), front_job_id)
+        self.assertEqual(q.pop_job_id(), first_job_id)
+
     def test_dequeue_any(self):
         """Fetching work from any given queue."""
         fooq = Queue('foo', connection=self.connection)
