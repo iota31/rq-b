@@ -88,6 +88,21 @@ class TestRetry(RQTestCase):
         self.assertEqual(Retry.get_interval(1, 3), 3)
         self.assertEqual(Retry.get_interval(2, 3), 3)
 
+    def test_job_get_retry_interval_with_list(self):
+        """Job.get_retry_interval() uses first interval first and clamps to last interval"""
+        job = Job.create(func=say_hello, connection=self.connection)
+
+        job.retry_intervals = [1, 2, 3]
+        job.retries_left = 3
+        self.assertEqual(job.get_retry_interval(), 1)
+
+        job.retries_left = 2
+        self.assertEqual(job.get_retry_interval(), 2)
+
+        job.retry_intervals = [5, 10]
+        job.retries_left = 1
+        self.assertEqual(job.get_retry_interval(), 10)
+
 
 class TestWorkerRetry(RQTestCase):
     """Tests from test_job_retry.py"""

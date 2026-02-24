@@ -1552,8 +1552,8 @@ class Job:
 
     def get_retry_interval(self) -> int:
         """Returns the desired retry interval.
-        If number of retries is bigger than length of intervals, the first
-        value in the list will be used multiple times.
+        If number of retries is bigger than length of intervals, the last
+        value in the list will be reused.
 
         Returns:
             retry_interval (int): The desired retry interval
@@ -1562,8 +1562,8 @@ class Job:
             return 0
         number_of_intervals = len(self.retry_intervals)
         assert self.retries_left
-        index = max(number_of_intervals - self.retries_left + 1, 0)
-        return self.retry_intervals[index]
+        index = max(number_of_intervals - self.retries_left, 0)
+        return Retry.get_interval(index, self.retry_intervals)
 
     @property
     def should_retry(self) -> bool:
