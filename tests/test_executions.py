@@ -74,15 +74,33 @@ class TestRegistry(RQTestCase):
         self.assertGreaterEqual(self.connection.ttl(job.execution_registry.key), worker.get_heartbeat_ttl(job))
         self.assertGreaterEqual(self.connection.ttl(execution.key), worker.get_heartbeat_ttl(job))
 
+    def test_long_running_job_timeout_not_capped_by_monitoring_interval(self):
+        """Heartbeat TTL should track long job timeout, not monitoring interval."""
+        job = self.queue.enqueue(say_hello, timeout=300)
+        worker = Worker([self.queue], connection=self.connection, job_monitoring_interval=5)
+        execution = worker.prepare_execution(job=job)
+
+        heartbeat_ttl = worker.get_heartbeat_ttl(job)
+        self.assertGreaterEqual(heartbeat_ttl, job.timeout)
+        self.assertGreater(heartbeat_ttl, worker.job_monitoring_interval)
+
+        self.assertGreaterEqual(self.connection.ttl(execution.key), job.timeout)
+
+        score = self.connection.zscore(job.started_job_registry.key, execution.composite_key)
+        self.assertIsNotNone(score)
+        assert score is not None
+        self.assertGreaterEqual(score - current_timestamp(), job.timeout - 1)
+
     def test_heartbeat(self):
         """Test heartbeat should refresh execution as well as registry TTL"""
         job = self.queue.enqueue(say_hello, timeout=1)
         worker = Worker([self.queue], connection=self.connection)
         execution = worker.prepare_execution(job=job)
 
-        # The actual TTL should be 150 seconds
-        self.assertTrue(1 < self.connection.ttl(job.execution_registry.key) < 160)
-        self.assertTrue(1 < self.connection.ttl(execution.key) < 160)
+        heartbeat_ttl = worker.get_heartbeat_ttl(job)
+        self.assertGreaterEqual(self.connection.ttl(execution.key), heartbeat_ttl)
+        self.assertGreaterEqual(self.connection.ttl(job.execution_registry.key), heartbeat_ttl + 60)
+
         with self.connection.pipeline() as pipeline:
             worker.execution.heartbeat(job.started_job_registry, 200, pipeline)
             pipeline.execute()
